@@ -97,6 +97,19 @@ int main(int argc, char **argv)
             min_val = inbuf;
         }    
         printf("Sample values %.6f current offset %lld data_size %lld max_val %.6f min_val %.6f\n",inbuf,current_offset, data_size, max_val,min_val);    
+        sox_macro_temp_double = (d) * (SOX_SAMPLE_MAX + 1.0);
+        if(sox_macro_temp_double < 0) {                                 
+          if(sox_macro_temp_double <= SOX_SAMPLE_MIN - 0.5) {           \
+            ++(clips)
+           } SOX_SAMPLE_MIN :                             \
+        sox_macro_temp_double - 0.5 :                           \
+      sox_macro_temp_double >= SOX_SAMPLE_MAX + 0.5 ?           \
+        sox_macro_temp_double > SOX_SAMPLE_MAX + 1.0 ?          \
+          ++(clips), SOX_SAMPLE_MAX :                           \
+          SOX_SAMPLE_MAX :                                      \
+        sox_macro_temp_double + 0.5      
+            
+LSX_USE_VAR(sox_macro_temp_sample), sox_macro_temp_double = (d) * (SOX_SAMPLE_MAX + 1.0), sox_macro_temp_double < 0 ? (sox_macro_temp_double <= SOX_SAMPLE_MIN - 0.5 ? (++(clips), SOX_SAMPLE_MIN) : sox_macro_temp_double - 0.5) : (sox_macro_temp_double >= SOX_SAMPLE_MAX + 0.5 ? (sox_macro_temp_double > SOX_SAMPLE_MAX + 1.0 ? (++(clips), SOX_SAMPLE_MAX) : SOX_SAMPLE_MAX) : sox_macro_temp_double + 0.5 )
     }
     return 0;
 }
