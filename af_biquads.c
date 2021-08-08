@@ -462,7 +462,7 @@ static int config_filter(AVFilterLink *outlink, int reset)
     double w0 = 2 * M_PI * s->frequency / inlink->sample_rate;
     double K = tan(w0 / 2.);
     double alpha, beta;
-
+    av_log(NULL, AV_LOG_WARNING, "Inside config_filter A %lf w0 %lf K %lf frequency %lf \n", A,w0,K,s->frequency);     
     s->bypass = (((w0 > M_PI || w0 <= 0.) && reset) || (s->width <= 0.)) && (s->filter_type != biquad);
     if (s->bypass) {
         av_log(ctx, AV_LOG_WARNING, "Invalid frequency and/or width!\n");
