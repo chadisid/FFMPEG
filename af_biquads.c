@@ -462,7 +462,7 @@ static int config_filter(AVFilterLink *outlink, int reset)
     double w0 = 2 * M_PI * s->frequency / inlink->sample_rate;
     double K = tan(w0 / 2.);
     double alpha, beta;
-    av_log(NULL, AV_LOG_WARNING, "Inside config_filter A %lf w0 %lf K %lf frequency %lf \n", A,w0,K,s->frequency);     
+    av_log(NULL, AV_LOG_WARNING, "Inside config_filter A %lf w0 %lf K %lf frequency %lf Gain %lf Sample rate %i\n", A,w0,K,s->frequency,s->gain,inlink->sample_rate);     
     s->bypass = (((w0 > M_PI || w0 <= 0.) && reset) || (s->width <= 0.)) && (s->filter_type != biquad);
     if (s->bypass) {
         av_log(ctx, AV_LOG_WARNING, "Invalid frequency and/or width!\n");
@@ -475,6 +475,7 @@ static int config_filter(AVFilterLink *outlink, int reset)
     switch (s->width_type) {
     case NONE:
         alpha = 0.0;
+        av_log(NULL, AV_LOG_WARNING, "Inside config_filter Alpha %lf\n",alpha);
         break;
     case HERTZ:
         alpha = sin(w0) / (2 * s->frequency / s->width);
@@ -593,12 +594,14 @@ static int config_filter(AVFilterLink *outlink, int reset)
         break;
     case lowpass:
         if (s->poles == 1) {
+            
             s->a0 = 1;
             s->a1 = -exp(-w0);
             s->a2 = 0;
             s->b0 = 1 + s->a1;
             s->b1 = 0;
             s->b2 = 0;
+            av_log(NULL, AV_LOG_WARNING, "Inside low pass config_filter s->a0 %lf s->a1 %lf s->a2 %lf s->b0 %lf s->b1 %lf s->b2 %lf \n", s->a0, s->a1, s->a2,s->b0,s->b1,s->b2);
         } else {
             s->a0 =  1 + alpha;
             s->a1 = -2 * cos(w0);
@@ -616,6 +619,7 @@ static int config_filter(AVFilterLink *outlink, int reset)
             s->b0 = (1 - s->a1) / 2;
             s->b1 = -s->b0;
             s->b2 = 0;
+            av_log(NULL, AV_LOG_WARNING, "Inside high pass config_filter s->a0 %lf s->a1 %lf s->a2 %lf s->b0 %lf s->b1 %lf s->b2 %lf \n", s->a0, s->a1, s->a2,s->b0,s->b1,s->b2);
         } else {
             s->a0 =   1 + alpha;
             s->a1 =  -2 * cos(w0);
@@ -657,13 +661,14 @@ static int config_filter(AVFilterLink *outlink, int reset)
     s->b1 /= s->a0;
     s->b2 /= s->a0;
     s->a0 /= s->a0;
-
+    av_log(NULL, AV_LOG_WARNING, "Inside config_filter s->a0 %lf s->a1 %lf s->a2 %lf s->b0 %lf s->b1 %lf s->b2 %lf \n", s->a0, s->a1, s->a2,s->b0,s->b1,s->b2);
     if (s->normalize && fabs(s->b0 + s->b1 + s->b2) > 1e-6) {
         double factor = (s->a0 + s->a1 + s->a2) / (s->b0 + s->b1 + s->b2);
 
         s->b0 *= factor;
         s->b1 *= factor;
         s->b2 *= factor;
+        av_log(NULL, AV_LOG_WARNING, "Inside config_filter s->b0 %lf s->b1 %lf s->b2 %lf \n", s->b0,s->b1,s->b2);
     }
 
     s->cache = av_realloc_f(s->cache, sizeof(ChanCache), inlink->channels);
@@ -683,6 +688,7 @@ static int config_filter(AVFilterLink *outlink, int reset)
             break;
         case AV_SAMPLE_FMT_FLTP:
             s->filter = biquad_flt;
+            av_log(NULL, AV_LOG_WARNING, "Inside DI config_filter s->filter = biquad_flt \n");    
             break;
         case AV_SAMPLE_FMT_DBLP:
             s->filter = biquad_dbl;
@@ -700,6 +706,7 @@ static int config_filter(AVFilterLink *outlink, int reset)
             break;
         case AV_SAMPLE_FMT_FLTP:
             s->filter = biquad_dii_flt;
+            av_log(NULL, AV_LOG_WARNING, "Inside DII config_filter s->filter = biquad_flt \n");    
             break;
         case AV_SAMPLE_FMT_DBLP:
             s->filter = biquad_dii_dbl;
@@ -717,6 +724,7 @@ static int config_filter(AVFilterLink *outlink, int reset)
             break;
         case AV_SAMPLE_FMT_FLTP:
             s->filter = biquad_tdii_flt;
+            av_log(NULL, AV_LOG_WARNING, "Inside TDII config_filter s->filter = biquad_flt \n");     
             break;
         case AV_SAMPLE_FMT_DBLP:
             s->filter = biquad_tdii_dbl;
@@ -734,6 +742,7 @@ static int config_filter(AVFilterLink *outlink, int reset)
             break;
         case AV_SAMPLE_FMT_FLTP:
             s->filter = biquad_latt_flt;
+            av_log(NULL, AV_LOG_WARNING, "Inside LATT config_filter s->filter = biquad_flt \n");    
             break;
         case AV_SAMPLE_FMT_DBLP:
             s->filter = biquad_latt_dbl;
