@@ -783,7 +783,7 @@ static int filter_channel(AVFilterContext *ctx, void *arg, int jobnr, int nb_job
     const int start = (buf->channels * jobnr) / nb_jobs;
     const int end = (buf->channels * (jobnr+1)) / nb_jobs;
     int ch;
-
+    av_log(NULL, AV_LOG_WARNING, "filter_channel start %i end %i nb jobs %i jobnr %i bufchannels %i\n",start,end,nb_jobs,jobnr,buf->channels);
     for (ch = start; ch < end; ch++) {
         if (!((av_channel_layout_extract_channel(inlink->channel_layout, ch) & s->channels))) {
             if (buf != out_buf)
@@ -791,7 +791,8 @@ static int filter_channel(AVFilterContext *ctx, void *arg, int jobnr, int nb_job
                        buf->nb_samples * s->block_align);
             continue;
         }
-
+        av_log(NULL, AV_LOG_WARNING, "filter_channel s->cache[ch].i1 %f s->cache[ch].i2 %f s->cache[ch].o1 %f s->cache[ch].o2 %f s->b0 %f s->b1 %f s->b2 %f s->a1 %f s->a2 %f s->cache[ch].clippings %i\n"
+               ,s->cache[ch].i1,s->cache[ch].i2,s->cache[ch].o1,s->cache[ch].o2,s->b0,s->b1,s->b2,s->a1,s->a2,s->cache[ch].clippings);
         s->filter(s, buf->extended_data[ch], out_buf->extended_data[ch], buf->nb_samples,
                   &s->cache[ch].i1, &s->cache[ch].i2, &s->cache[ch].o1, &s->cache[ch].o2,
                   s->b0, s->b1, s->b2, s->a1, s->a2, &s->cache[ch].clippings, ctx->is_disabled);
