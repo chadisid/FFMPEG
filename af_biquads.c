@@ -210,6 +210,7 @@ static void biquad_## name (BiquadsContext *s,                                \
                             double a1, double a2, int *clippings,             \
                             int disabled)                                     \
 {                                                                             \
+    av_log(ctx, AV_LOG_WARNING, "Inside biquad filter \n");                   \
     const type *ibuf = input;                                                 \
     type *obuf = output;                                                      \
     double i1 = *in1;                                                         \
@@ -453,6 +454,7 @@ static void convert_dir2latt(BiquadsContext *s)
 
 static int config_filter(AVFilterLink *outlink, int reset)
 {
+    av_log(ctx, AV_LOG_WARNING, "Inside config_filter \n");                   \
     AVFilterContext *ctx    = outlink->src;
     BiquadsContext *s       = ctx->priv;
     AVFilterLink *inlink    = ctx->inputs[0];
@@ -753,6 +755,7 @@ static int config_filter(AVFilterLink *outlink, int reset)
 
 static int config_output(AVFilterLink *outlink)
 {
+    av_log(ctx, AV_LOG_WARNING, "Inside config_output \n");
     return config_filter(outlink, 1);
 }
 
@@ -762,6 +765,7 @@ typedef struct ThreadData {
 
 static int filter_channel(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs)
 {
+    av_log(ctx, AV_LOG_WARNING, "filter_channel \n");
     AVFilterLink *inlink = ctx->inputs[0];
     ThreadData *td = arg;
     AVFrame *buf = td->in;
@@ -789,6 +793,7 @@ static int filter_channel(AVFilterContext *ctx, void *arg, int jobnr, int nb_job
 
 static int filter_frame(AVFilterLink *inlink, AVFrame *buf)
 {
+    av_log(ctx, AV_LOG_WARNING, "filter_frame \n");
     AVFilterContext  *ctx = inlink->dst;
     BiquadsContext *s     = ctx->priv;
     AVFilterLink *outlink = ctx->outputs[0];
@@ -830,6 +835,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *buf)
 static int process_command(AVFilterContext *ctx, const char *cmd, const char *args,
                            char *res, int res_len, int flags)
 {
+    av_log(ctx, AV_LOG_WARNING, "process_command \n");
     AVFilterLink *outlink = ctx->outputs[0];
     int ret;
 
@@ -842,8 +848,9 @@ static int process_command(AVFilterContext *ctx, const char *cmd, const char *ar
 
 static av_cold void uninit(AVFilterContext *ctx)
 {
+    
     BiquadsContext *s = ctx->priv;
-
+     av_log(ctx, AV_LOG_WARNING, "uninit \n");
     av_freep(&s->cache);
 }
 
