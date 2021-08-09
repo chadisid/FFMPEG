@@ -209,9 +209,10 @@ int main(int argc, char **argv)
     float *out_highpass = (float*) malloc(sizeof(float)*num_samples);	
     int bytes; 
     double frequency_lowpass = 300;
+    double frequency_lowpass = 200;	
     int sample_rate = 48000;
     filter_context *filter_lowpass = init_filter(frequency_lowpass,sample_rate,lowpass); 
-    filter_context *filter_highpass = init_filter(frequency_lowpass,sample_rate,highpass); 	
+    filter_context *filter_highpass = init_filter(frequency_highpass,sample_rate,highpass); 	
     while (current_offset < data_size) {
         bytes = fread(inbuf, sizeof(float), num_samples, f);
         current_offset += sizeof(float)*bytes;
@@ -235,9 +236,10 @@ int main(int argc, char **argv)
 		    min_val_two = td;
 		}
         }
-	filter (inbuf, out_lowpass, bytes, filter_lowpass);    
-        fwrite(inbuf, sizeof(float), bytes, outfile);
-        fwrite(inbuf, sizeof(float), bytes, outraw);
+	filter (inbuf, out_highpass, bytes, filter_highpass);    
+	filter (out_highpass, out_lowpass, bytes, filter_lowpass);
+        fwrite(out_lowpass, sizeof(float), bytes, outfile);
+        fwrite(out_lowpass, sizeof(float), bytes, outraw);
         printf("Sample values %f current offset %lld data_size %lld max_val %f min_val %f clips %i clips_two %i min_val_two %f max_val_two %f\n",inbuf[0],current_offset, data_size, max_val,min_val,clips_t,clips_two,min_val_two,max_val_two);    
      }
      fseek(outfile, 0, SEEK_END);
