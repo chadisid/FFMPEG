@@ -4,7 +4,6 @@
 #include <math.h>
 typedef int32_t sox_int32_t;
 typedef sox_int32_t sox_sample_t;
-#define LOG2_10      3.32192809488736234787  /* log_2 10 */
 #define PI	3.14159265359
 #define LSX_USE_VAR(x)  ((void)(x=0)) /* During static analysis, initialize unused variables to 0. */
 /**
@@ -76,7 +75,11 @@ typedef struct wav_header {
 	char data[4];
 	uint32_t blocksize;
 } wav_header;
-typedef struct filter_type {
+enum filter_type {
+    highpass,
+    lowpass,
+};
+typedef struct filter_context {
     double gain;
     double frequency;
     double mix;
@@ -84,58 +87,70 @@ typedef struct filter_type {
     double o1, o2;
     double a0, a1, a2;
     double b0, b1, b2;	
-} filter_type;
+} filter_context;
 
-static void filter (const void *input, void *output, int len,         
-                          double *in1, double *in2,                         
-                          double *out1, double *out2,                       
-                          double b0, double b1, double b2,                  
-                          double a1, double a2)                                     
+static void filter (const void *input, void *output, int len,filter_context *filter)                                     
 {    
     //len is number of samples	
     printf("Inside biquad filter \n");                   
     float *ibuf = input;                                                 
-    float *obuf = output;                                                      
-    double i1 = *in1;                                                         
-    double i2 = *in2;                                                         
-    double o1 = *out1;                                                        
-    double o2 = *out2;                                                        
+    float *obuf = output;                                                                                                         
     double wet = 1; //s->mix = 1;                                                      
     double dry = 1. - wet;                                                    
     double out;                                                               
     int i;                                                                    
-    a1 = -a1;                                                                 
-    a2 = -a2;                                                                 
-                                                                              
+    double a1 = -filter->a1;                                                                 
+    double a2 = -filter->a2;                                                                 
     for (i = 0; i+1 < len; i++) {                                             
-        o2 = i2 * b2 + i1 * b1 + ibuf[i] * b0 + o2 * a2 + o1 * a1;            
-        i2 = ibuf[i];                                                         
-        out = o2 * wet + i2 * dry;                                                                                                        
+        filter->o2 = filter->i2 * filter->b2 + filter->i1 * filter->b1 + ibuf[i] * filter->b0 + filter->o2 * a2 + filter->o1 * a1;            
+        filter->i2 = ibuf[i];                                                         
+        out = filter->o2 * wet + filter->i2 * dry;                                                                                                        
         obuf[i] = out;                                                                                                                       
         i++;                                                                  
-        o1 = i1 * b2 + i2 * b1 + ibuf[i] * b0 + o1 * a2 + o2 * a1;            
-        i1 = ibuf[i];                                                         
-        out = o1 * wet + i1 * dry;                                                                                                        
+        filter->o1 = filter->i1 * filter->b2 + filter->i2 * filter->b1 + ibuf[i] * filter->b0 + filter->o1 * a2 + filter->o2 * a1;            
+        filter->i1 = ibuf[i];                                                         
+        out = filter->o1 * wet + filter->i1 * dry;                                                                                                        
         obuf[i] = out;                                                    
                                                                             
     }                                                                         
     if (i < len) {                                                            
-        double o0 = ibuf[i] * b0 + i1 * b1 + i2 * b2 + o1 * a1 + o2 * a2;     
-        i2 = i1;                                                              
-        i1 = ibuf[i];                                                         
-        o2 = o1;                                                              
-        o1 = o0;                                                              
-        out = o0 * wet + i1 * dry;                                                                                                        
+        double o0 = ibuf[i] * filter->b0 + filter->i1 * filter->b1 + filter->i2 * filter->b2 + filter->o1 * a1 + filter->o2 * a2;     
+        filter->i2 = filter->i1;                                                              
+        filter->i1 = ibuf[i];                                                         
+        filter->o2 = filter->o1;                                                              
+        filter->o1 = o0;                                                              
+        out = o0 * wet + filter->i1 * dry;                                                                                                        
         obuf[i] = out;                                                                                                                       
-    }                                                                         
-    *in1  = i1;                                                               
-    *in2  = i2;                                                               
-    *out1 = o1;                                                               
-    *out2 = o2;                                                               
+    }                                                                                                                                     
 }
 
-
-
+filter_context * init_filter(double frequency, int sample_rate, enum filter_type filter_name) {
+   double w0 = 2 * PI * frequency / sample_rate;
+   filter_context *filter = (filter_context *)malloc(sizeof(filter_context));
+   memset(filter, 0, sizeof(filter_context));
+   switch (filter_name) {
+	case lowpass:	
+	    filter->a0 = 1;
+	    filter->a1 = -exp(-w0);
+	    filter->a2 = 0;
+	    filter->b0 = 1 + filter->a1;
+	    filter->b1 = 0;
+	    filter->b2 = 0;
+	    break;
+	case highpass:
+	    filter->a0 = 1;
+            filter->a1 = -exp(-w0);
+            filter->a2 = 0;
+            filter->b0 = (1 - filter->a1) / 2;
+            filter->b1 = -filter->b0;
+            filter->b2 = 0;   
+	    break;
+	default:
+            //av_assert0(0);
+            break;		   
+    }	
+    return filter;	
+}
 int main(int argc, char **argv)
 {
     const char *outfilename, *filename;
@@ -186,21 +201,16 @@ int main(int argc, char **argv)
     data_size = ftell(f);
     printf("Size of input file %lld\n",data_size);
     fseek(f, 0, SEEK_SET);
-    float inbuf[8192],max_val,min_val,max_val_two,min_val_two;
+    float max_val,min_val,max_val_two,min_val_two;
+    int num_samples = 1024;
+    float *inbuf = (float *)malloc(sizeof(float)*num_samples);	
+    float *out_lowpass = (float *)malloc(sizeof(float)*num_samples);
+    float *out_highpass = (float*) malloc(sizeof(float)*num_samples);	
     int bytes; 
     double frequency_lowpass = 300;
     int sample_rate = 48000;
-    double w0_lowpass = 2 * PI * frequency_lowpass / sample_rate;
-    filter_type *filter_lowpass = (filter_type *)malloc(sizeof(filter_type));
-    memset(filter_lowpass, 0, sizeof(filter_type));
-    //Low pass start
-    filter_lowpass->a0 = 1;
-    filter_lowpass->a1 = -exp(-w0);
-    filter_lowpass->a2 = 0;
-    filter_lowpass->b0 = 1 + a1;
-    filter_lowpass->b1 = 0;
-    filter_lowpass->b2 = 0;
-    // Low pass end	
+    filter_context *filter_lowpass = init_filter(frequency_lowpass,sample_rate,lowpass); 
+    filter_context *filter_highpass = init_filter(frequency_lowpass,sample_rate,highpass); 	
     while (current_offset < data_size) {
         bytes = fread(&inbuf, sizeof(float), 8192, f);
         current_offset += sizeof(float)*bytes;
@@ -224,7 +234,7 @@ int main(int argc, char **argv)
 		    min_val_two = td;
 		}
         }
-	filter (inbuf, output, bytes, cache_lowpass->i1, cache_lowpass->i2, cache_lowpass->o1, cache_lowpass->o2, b0, b1, b2, a1, a2)    
+	filter (inbuf, out_lowpass, bytes, filter_lowpass);    
         fwrite(inbuf, sizeof(float), bytes, outfile);
         fwrite(inbuf, sizeof(float), bytes, outraw);
         printf("Sample values %f current offset %lld data_size %lld max_val %f min_val %f clips %i clips_two %i min_val_two %f max_val_two %f\n",inbuf[0],current_offset, data_size, max_val,min_val,clips_t,clips_two,min_val_two,max_val_two);    
