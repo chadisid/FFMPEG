@@ -208,8 +208,8 @@ int main(int argc, char **argv)
     float *out_lowpass = (float *)malloc(sizeof(float)*num_samples);
     float *out_highpass = (float*) malloc(sizeof(float)*num_samples);	
     int bytes; 
-    double frequency_lowpass = 300;
-    double frequency_lowpass = 200;	
+    double frequency_lowpass = 500;
+    double frequency_highpass = 200;	
     int sample_rate = 48000;
     filter_context *filter_lowpass = init_filter(frequency_lowpass,sample_rate,lowpass); 
     filter_context *filter_highpass = init_filter(frequency_highpass,sample_rate,highpass); 	
