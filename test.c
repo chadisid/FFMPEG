@@ -90,7 +90,7 @@ typedef struct filter_context {
     double b0, b1, b2;	
 } filter_context;
 
-static void filter (const void *input, void *output, int len,filter_context *filter)                                     
+static void filter (float *input, float *output, int len,filter_context *filter)                                     
 {    
     //len is number of samples	
     printf("Inside biquad filter \n");                   
