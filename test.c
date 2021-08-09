@@ -213,7 +213,7 @@ int main(int argc, char **argv)
     filter_context *filter_lowpass = init_filter(frequency_lowpass,sample_rate,lowpass); 
     filter_context *filter_highpass = init_filter(frequency_lowpass,sample_rate,highpass); 	
     while (current_offset < data_size) {
-        bytes = fread(&inbuf, sizeof(float), 8192, f);
+        bytes = fread(inbuf, sizeof(float), num_samples, f);
         current_offset += sizeof(float)*bytes;
         int i = 0;
         for(i = 0; i<bytes; i++) {
