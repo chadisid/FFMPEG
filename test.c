@@ -238,7 +238,10 @@ int main(int argc, char **argv)
         }
 	filter (inbuf, out_highpass, bytes, filter_highpass);    
 	filter (out_highpass, out_lowpass, bytes, filter_lowpass);
-        fwrite(out_lowpass, sizeof(float), bytes, outfile);
+        for(i = 0; i<bytes; i++) {
+	  out_lowpass[i] = 0.5*out_lowpass[i];
+	}	
+	fwrite(out_lowpass, sizeof(float), bytes, outfile);
         fwrite(out_lowpass, sizeof(float), bytes, outraw);
         printf("Sample values %f current offset %lld data_size %lld max_val %f min_val %f clips %i clips_two %i min_val_two %f max_val_two %f\n",inbuf[0],current_offset, data_size, max_val,min_val,clips_t,clips_two,min_val_two,max_val_two);    
      }
