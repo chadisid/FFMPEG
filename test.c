@@ -75,84 +75,6 @@ typedef struct wav_header {
 	char data[4];
 	uint32_t blocksize;
 } wav_header;
-
-static void biquad_filter (BiquadsContext *s,                                \
-                            const void *input, void *output, int len,         \
-                            double *in1, double *in2,                         \
-                            double *out1, double *out2,                       \
-                            double b0, double b1, double b2,                  \
-                            double a1, double a2, int *clippings,             \
-                            int disabled)                                     \
-{                                                                             \
-    printf("Inside biquad filter \n");                   \
-    float *ibuf = input;                                                 \
-    float *obuf = output;                                                      \
-    double i1 = *in1;                                                         \
-    double i2 = *in2;                                                         \
-    double o1 = *out1;                                                        \
-    double o2 = *out2;                                                        \
-    double wet = s->mix;                                                      \
-    double dry = 1. - wet;                                                    \
-    double out;                                                               \
-    int i;                                                                    \
-    a1 = -a1;                                                                 \
-    a2 = -a2;                                                                 \
-                                                                              \
-    for (i = 0; i+1 < len; i++) {                                             \
-        o2 = i2 * b2 + i1 * b1 + ibuf[i] * b0 + o2 * a2 + o1 * a1;            \
-        i2 = ibuf[i];                                                         \
-        out = o2 * wet + i2 * dry;                                            \
-        if (disabled) {                                                       \
-            obuf[i] = i2;                                                     \
-        } else if (need_clipping && out < min) {                              \
-            (*clippings)++;                                                   \
-            obuf[i] = min;                                                    \
-        } else if (need_clipping && out > max) {                              \
-            (*clippings)++;                                                   \
-            obuf[i] = max;                                                    \
-        } else {                                                              \
-            obuf[i] = out;                                                    \
-        }                                                                     \
-        i++;                                                                  \
-        o1 = i1 * b2 + i2 * b1 + ibuf[i] * b0 + o1 * a2 + o2 * a1;            \
-        i1 = ibuf[i];                                                         \
-        out = o1 * wet + i1 * dry;                                            \
-        if (disabled) {                                                       \
-            obuf[i] = i1;                                                     \
-        } else if (need_clipping && out < min) {                              \
-            (*clippings)++;                                                   \
-            obuf[i] = min;                                                    \
-        } else if (need_clipping && out > max) {                              \
-            (*clippings)++;                                                   \
-            obuf[i] = max;                                                    \
-        } else {                                                              \
-            obuf[i] = out;                                                    \
-        }                                                                     \
-    }                                                                         \
-    if (i < len) {                                                            \
-        double o0 = ibuf[i] * b0 + i1 * b1 + i2 * b2 + o1 * a1 + o2 * a2;     \
-        i2 = i1;                                                              \
-        i1 = ibuf[i];                                                         \
-        o2 = o1;                                                              \
-        o1 = o0;                                                              \
-        out = o0 * wet + i1 * dry;                                            \
-        if (disabled) {                                                       \
-            obuf[i] = i1;                                                     \
-        } else if (need_clipping && out < min) {                              \
-            (*clippings)++;                                                   \
-            obuf[i] = min;                                                    \
-        } else if (need_clipping && out > max) {                              \
-            (*clippings)++;                                                   \
-            obuf[i] = max;                                                    \
-        } else {                                                              \
-            obuf[i] = out;                                                    \
-        }                                                                     \
-    }                                                                         \
-    *in1  = i1;                                                               \
-    *in2  = i2;                                                               \
-    *out1 = o1;                                                               \
-    *out2 = o2;                                                               \
-}
 typedef struct ChanCache {
     double i1, i2;
     double o1, o2;
@@ -208,6 +130,56 @@ typedef struct BiquadsContext {
                    double b0, double b1, double b2, double a1, double a2, int *clippings,
                    int disabled);
 } BiquadsContext;
+static void biquad_filter (BiquadsContext *s,                                
+                            const void *input, void *output, int len,         
+                            double *in1, double *in2,                         
+                            double *out1, double *out2,                       
+                            double b0, double b1, double b2,                  
+                            double a1, double a2, int *clippings,             
+                            int disabled)                                     
+{                                                                             
+    printf("Inside biquad filter \n");                   
+    float *ibuf = input;                                                 
+    float *obuf = output;                                                      
+    double i1 = *in1;                                                         
+    double i2 = *in2;                                                         
+    double o1 = *out1;                                                        
+    double o2 = *out2;                                                        
+    double wet = s->mix;                                                      
+    double dry = 1. - wet;                                                    
+    double out;                                                               
+    int i;                                                                    
+    a1 = -a1;                                                                 
+    a2 = -a2;                                                                 
+                                                                              
+    for (i = 0; i+1 < len; i++) {                                             
+        o2 = i2 * b2 + i1 * b1 + ibuf[i] * b0 + o2 * a2 + o1 * a1;            
+        i2 = ibuf[i];                                                         
+        out = o2 * wet + i2 * dry;                                                                                                        
+        obuf[i] = out;                                                                                                                       
+        i++;                                                                  
+        o1 = i1 * b2 + i2 * b1 + ibuf[i] * b0 + o1 * a2 + o2 * a1;            
+        i1 = ibuf[i];                                                         
+        out = o1 * wet + i1 * dry;                                                                                                        
+        obuf[i] = out;                                                    
+                                                                            
+    }                                                                         
+    if (i < len) {                                                            
+        double o0 = ibuf[i] * b0 + i1 * b1 + i2 * b2 + o1 * a1 + o2 * a2;     
+        i2 = i1;                                                              
+        i1 = ibuf[i];                                                         
+        o2 = o1;                                                              
+        o1 = o0;                                                              
+        out = o0 * wet + i1 * dry;                                                                                                        
+        obuf[i] = out;                                                                                                                       
+    }                                                                         
+    *in1  = i1;                                                               
+    *in2  = i2;                                                               
+    *out1 = o1;                                                               
+    *out2 = o2;                                                               
+}
+
+
 
 int main(int argc, char **argv)
 {
