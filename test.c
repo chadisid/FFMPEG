@@ -1,10 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <math.h>
 typedef int32_t sox_int32_t;
 typedef sox_int32_t sox_sample_t;
-
-
+#define LOG2_10      3.32192809488736234787  /* log_2 10 */
+#define PI	3.14159265359
 #define LSX_USE_VAR(x)  ((void)(x=0)) /* During static analysis, initialize unused variables to 0. */
 /**
 Client API:
@@ -75,69 +76,23 @@ typedef struct wav_header {
 	char data[4];
 	uint32_t blocksize;
 } wav_header;
-typedef struct ChanCache {
-    double i1, i2;
-    double o1, o2;
-    int clippings;
-} ChanCache;
-
-enum FilterType {
-    biquad,
-    equalizer,
-    bass,
-    treble,
-    bandpass,
-    bandreject,
-    allpass,
-    highpass,
-    lowpass,
-    lowshelf,
-    highshelf,
-};
-
-
-typedef struct BiquadsContext {
-//    const AVClass *class;
-
-    enum FilterType filter_type;
-    int width_type;
-    int poles;
-    int csg;
-    int transform_type;
-    int precision;
-
-    int bypass;
-
+typedef struct filter_type {
     double gain;
     double frequency;
-    double width;
     double mix;
-    uint64_t channels;
-    int normalize;
-    int order;
-
+    double i1, i2;
+    double o1, o2;
     double a0, a1, a2;
-    double b0, b1, b2;
+    double b0, b1, b2;	
+} filter_type;
 
-    double oa0, oa1, oa2;
-    double ob0, ob1, ob2;
-
-    ChanCache *cache;
-    int block_align;
-
-    void (*filter)(struct BiquadsContext *s, const void *ibuf, void *obuf, int len,
-                   double *i1, double *i2, double *o1, double *o2,
-                   double b0, double b1, double b2, double a1, double a2, int *clippings,
-                   int disabled);
-} BiquadsContext;
-static void biquad_filter (BiquadsContext *s,                                
-                            const void *input, void *output, int len,         
-                            double *in1, double *in2,                         
-                            double *out1, double *out2,                       
-                            double b0, double b1, double b2,                  
-                            double a1, double a2, int *clippings,             
-                            int disabled)                                     
-{                                                                             
+static void filter (const void *input, void *output, int len,         
+                          double *in1, double *in2,                         
+                          double *out1, double *out2,                       
+                          double b0, double b1, double b2,                  
+                          double a1, double a2)                                     
+{    
+    //len is number of samples	
     printf("Inside biquad filter \n");                   
     float *ibuf = input;                                                 
     float *obuf = output;                                                      
@@ -145,7 +100,7 @@ static void biquad_filter (BiquadsContext *s,
     double i2 = *in2;                                                         
     double o1 = *out1;                                                        
     double o2 = *out2;                                                        
-    double wet = s->mix;                                                      
+    double wet = 1; //s->mix = 1;                                                      
     double dry = 1. - wet;                                                    
     double out;                                                               
     int i;                                                                    
@@ -198,33 +153,33 @@ int main(int argc, char **argv)
     }
     outfile = fopen(outfilename, "wb");
     if (!outfile) {
-        fprintf(stderr, "Could not open %s\n", outfilename);
+    	fprintf(stderr, "Could not open %s\n", outfilename);
         exit(1);
     }
     outraw = fopen("xx.raw", "wb");
-   if (!outraw) {
+    if (!outraw) {
         fprintf(stderr, "Could not open\n" );
         exit(1);
     }
-    		/* Write WAV header */
-		wav_header header = {
-			{'R', 'I', 'F', 'F'},
-			0,
-			{'W', 'A', 'V', 'E'},
-			{'f', 'm', 't', ' '},
-			16,
-			0x0003,
-			1,
-			48000,
-			48000 * 2,
-			2,
-			16,
-			{'d', 'a', 't', 'a'},
-			0
-		};
-    		if(fwrite(&header, 1, sizeof(header), outfile) != sizeof(header)) {
-			printf("Error writing WAV header...\n");
-		}
+    /* Write WAV header */
+    wav_header header = {
+	    {'R', 'I', 'F', 'F'},
+	    0,
+	    {'W', 'A', 'V', 'E'},
+	    {'f', 'm', 't', ' '},
+	    16,
+	    0x0003,
+	    1,
+	    48000,
+	    48000 * 2,
+	    2,
+	    16,
+	    {'d', 'a', 't', 'a'},
+	    0
+	    };
+    if(fwrite(&header, 1, sizeof(header), outfile) != sizeof(header)) {
+	printf("Error writing WAV header...\n");
+    }
     fflush(outfile);
     int64_t data_size, current_offset;
     fseek(f, 0, SEEK_END);
@@ -232,52 +187,62 @@ int main(int argc, char **argv)
     printf("Size of input file %lld\n",data_size);
     fseek(f, 0, SEEK_SET);
     float inbuf[8192],max_val,min_val,max_val_two,min_val_two;
-    int bytes;
+    int bytes; 
+    double frequency_lowpass = 300;
+    int sample_rate = 48000;
+    double w0_lowpass = 2 * PI * frequency_lowpass / sample_rate;
+    filter_type *filter_lowpass = (filter_type *)malloc(sizeof(filter_type));
+    memset(filter_lowpass, 0, sizeof(filter_type));
+    //Low pass start
+    filter_lowpass->a0 = 1;
+    filter_lowpass->a1 = -exp(-w0);
+    filter_lowpass->a2 = 0;
+    filter_lowpass->b0 = 1 + a1;
+    filter_lowpass->b1 = 0;
+    filter_lowpass->b2 = 0;
+    // Low pass end	
     while (current_offset < data_size) {
         bytes = fread(&inbuf, sizeof(float), 8192, f);
         current_offset += sizeof(float)*bytes;
         int i = 0;
         for(i = 0; i<bytes; i++) {
-        if(inbuf[i] > max_val)  {
-            max_val = inbuf[i];
-        }    
-        if(inbuf[i] < min_val) {
-            min_val = inbuf[i];
+		if(inbuf[i] > max_val)  {
+		    max_val = inbuf[i];
+		}    
+		if(inbuf[i] < min_val) {
+		    min_val = inbuf[i];
+		}
+		//inbuf[i] = 0.05*inbuf[i];
+		SOX_SAMPLE_LOCALS;
+		sox_sample_t ty = SOX_FLOAT_32BIT_TO_SAMPLE(inbuf[i],clips_t);
+		float td = SOX_SAMPLE_TO_FLOAT_32BIT(ty,clips_two);
+		inbuf[i] = td;
+		if(td > max_val_two)  {
+		    max_val_two = td;
+		}
+		if(td < min_val_two) {
+		    min_val_two = td;
+		}
         }
-        //inbuf[i] = 0.05*inbuf[i];
-        
-        
-	
-        SOX_SAMPLE_LOCALS;
-        sox_sample_t ty = SOX_FLOAT_32BIT_TO_SAMPLE(inbuf[i],clips_t);
-        float td = SOX_SAMPLE_TO_FLOAT_32BIT(ty,clips_two);
-        inbuf[i] = td;
-        if(td > max_val_two)  {
-            max_val_two = td;
-        }
-        if(td < min_val_two) {
-            min_val_two = td;
-        }
-        }
+	filter (inbuf, output, bytes, cache_lowpass->i1, cache_lowpass->i2, cache_lowpass->o1, cache_lowpass->o2, b0, b1, b2, a1, a2)    
         fwrite(inbuf, sizeof(float), bytes, outfile);
-         fwrite(inbuf, sizeof(float), bytes, outraw);
+        fwrite(inbuf, sizeof(float), bytes, outraw);
         printf("Sample values %f current offset %lld data_size %lld max_val %f min_val %f clips %i clips_two %i min_val_two %f max_val_two %f\n",inbuf[0],current_offset, data_size, max_val,min_val,clips_t,clips_two,min_val_two,max_val_two);    
-       
      }
-     				fseek(outfile, 0, SEEK_END);
-				long int size = ftell(outfile);
-				if(size >= 8) {
-					size -= 8;
-					fseek(outfile, 4, SEEK_SET);
-					fwrite(&size, sizeof(uint32_t), 1, outfile);
-					size += 8;
-					fseek(outfile, 40, SEEK_SET);
-					fwrite(&size, sizeof(uint32_t), 1, outfile);
-					fflush(outfile);
-					fseek(outfile, 0, SEEK_END);
-				}
-fclose(outfile);
-fflush(outraw);
-fclose(outraw);
+     fseek(outfile, 0, SEEK_END);
+     long int size = ftell(outfile);
+     if(size >= 8) {
+	size -= 8;
+	fseek(outfile, 4, SEEK_SET);
+	fwrite(&size, sizeof(uint32_t), 1, outfile);
+	size += 8;
+	fseek(outfile, 40, SEEK_SET);
+	fwrite(&size, sizeof(uint32_t), 1, outfile);
+	fflush(outfile);
+	fseek(outfile, 0, SEEK_END);
+    }
+    fclose(outfile);
+    fflush(outraw);
+    fclose(outraw);
     return 0;
 }
