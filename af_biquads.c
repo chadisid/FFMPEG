@@ -210,7 +210,6 @@ static void biquad_## name (BiquadsContext *s,                                \
                             double a1, double a2, int *clippings,             \
                             int disabled)                                     \
 {                                                                             \
-    av_log(NULL, AV_LOG_WARNING, "Inside biquad filter \n");                   \
     const type *ibuf = input;                                                 \
     type *obuf = output;                                                      \
     double i1 = *in1;                                                         \
@@ -219,6 +218,7 @@ static void biquad_## name (BiquadsContext *s,                                \
     double o2 = *out2;                                                        \
     double wet = s->mix;                                                      \
     double dry = 1. - wet;                                                    \
+    av_log(NULL, AV_LOG_WARNING, "Inside biquad filter %lf\n",wet);           \
     double out;                                                               \
     int i;                                                                    \
     a1 = -a1;                                                                 \
