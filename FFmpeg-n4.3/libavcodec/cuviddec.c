@@ -420,19 +420,24 @@ static int cuvid_decode_packet(AVCodecContext *avctx, const AVPacket *avpkt)
 
     ret = CHECK_CU(ctx->cvdl->cuvidParseVideoData(ctx->cuparser, &cupkt));
 
-    if (ret < 0)
+    av_log(avctx, AV_LOG_TRACE, "Abu cuvidParseVideoData \n");
+
+    if (ret < 0) {
+        av_log(avctx, AV_LOG_TRACE, "cuvid_decode_packet ret < 0 \n");
         goto error;
+    }
 
     // cuvidParseVideoData doesn't return an error just because stuff failed...
     if (ctx->internal_error) {
         av_log(avctx, AV_LOG_ERROR, "cuvid decode callback error\n");
+        av_log(avctx, AV_LOG_TRACE, "uvid decode callback error\n");
         ret = ctx->internal_error;
         goto error;
     }
 
 error:
     eret = CHECK_CU(ctx->cudl->cuCtxPopCurrent(&dummy));
-
+    av_log(avctx, AV_LOG_TRACE, "ABU cuCtxPopCurrent\n");
     if (eret < 0)
         return eret;
     else if (ret < 0)
@@ -456,6 +461,7 @@ static int cuvid_output_frame(AVCodecContext *avctx, AVFrame *frame)
 
     if (ctx->decoder_flushing) {
         ret = cuvid_decode_packet(avctx, NULL);
+        av_log(avctx, AV_LOG_TRACE, "Abu cuvid_decode_packet %i\n", ret);
         if (ret < 0 && ret != AVERROR_EOF)
             return ret;
     }
@@ -463,6 +469,7 @@ static int cuvid_output_frame(AVCodecContext *avctx, AVFrame *frame)
     if (!cuvid_is_buffer_full(avctx)) {
         AVPacket pkt = {0};
         ret = ff_decode_get_packet(avctx, &pkt);
+        av_log(avctx, AV_LOG_TRACE, "Abu ff_decode_get_packet %i\n", ret);
         if (ret < 0 && ret != AVERROR_EOF)
             return ret;
         ret = cuvid_decode_packet(avctx, &pkt);

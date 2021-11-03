@@ -576,7 +576,7 @@ static int decode_receive_frame_internal(AVCodecContext *avctx, AVFrame *frame)
             }
         }
     }
-    av_log(avctx, AV_LOG_WARNING, "Abu decode_receive_frame_internal %i\n", ret);
+    av_log(avctx, AV_LOG_TRACE, "Abu decode_receive_frame_internal %i\n", ret);
     /* free the per-frame decode data */
     av_buffer_unref(&frame->private_ref);
 
